@@ -4,6 +4,7 @@ import (
     //    "encoding/json"
     "os"
     "fmt"
+    "time"
     "log"
     "io"
     "bytes"
@@ -60,25 +61,45 @@ func main() {
 
 
     fmt.Printf("hello, world\n")
+
+    ticker := time.NewTicker(2 * time.Minute)
+    quit := make(chan struct{})
+    go func() {
+        for {
+           select {
+           case <- ticker.C:
+                // do stuff
 	
     data := getData()
-
+log.Print(data)
 	url := "http://"+host+":"+port+"/api/v1/"+token+"/telemetry"
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(data)
-	log.Print("DATA: ")	
-	log.Print(json.Marshal(data))	
+	log.Print("url: "+url)	
+	//log.Print("data: "+string(data))	
+	//log.Print("data2:"+json.Marshal(data).value)	
 	
+	jd,err := json.Marshal(data)
+	log.Print(jd)
+
 	res, err := http.Post(url, "application/json; charset=utf-8", b)
 	
     if err != nil {
 	log.Print(err)
-        // TODO: error handling
     }
 	log.Print("Request sent...")
+	log.Print(res)
 	io.Copy(os.Stdout, res.Body)
 
 
+           case <- quit:
+           ticker.Stop()
+           return
+        }
+    }
+ }()
+
+select {}
 
 }
 
@@ -99,10 +120,13 @@ func getData() Message {
 	}
 	
 
-	log.Print("DATA READ: ")
+	log.Print("DATA READ1: ")
 	log.Print(readData)
 
 	data := Message{readData.Temp, readData.Hum, readData.Press, true}
+
+	log.Print("DATA READ2: ")
+	log.Print(data)
 
 	return data
 
