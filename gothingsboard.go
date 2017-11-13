@@ -2,21 +2,22 @@ package main
 
 import (
     //    "encoding/json"
-    "os"
-    "fmt"
-    "time"
-    "log"
-    "io"
-    "bytes"
-    "encoding/json"
-    "net/http"
-    "github.com/creamdog/gonfig"
+"os"
+"fmt"
+"time"
+"log"
+"log/syslog"
+"io"
+"bytes"
+"encoding/json"
+"net/http"
+"github.com/creamdog/gonfig"
 
     //"golang.org/x/exp/io/i2c"
     //"github.com/biturbo/bme280"
 
-    "github.com/davecheney/i2c"
-    "github.com/quinte17/bme280"
+"github.com/davecheney/i2c"
+"github.com/quinte17/bme280"
 //    "github.com/d2r2/go-i2c"
 )
 
@@ -32,72 +33,78 @@ type Message struct {
 func main() {
 
 
+    l3, err := syslog.New(syslog.LOG_ERR, "GoThingsBoard")
+    //l3, err := syslog.Dial("udp", "localhost", syslog.LOG_ERR, "GoExample") // connection to a log daemon
+    defer l3.Close()
+    if err != nil {
+        log.Fatal("error")
+    }
+
     confFile := os.Args[1]
 
     fmt.Printf("CFG_FILE: "+confFile+"\n")
 
     f, err := os.Open(confFile)
     if err != nil {
-	log.Print(err)
+       log.Print(err)
         // TODO: error handling
-    }
-    defer f.Close();
-    config, err := gonfig.FromJson(f)
-    if err != nil {
-	log.Print(err)
+   }
+   defer f.Close();
+   config, err := gonfig.FromJson(f)
+   if err != nil {
+       log.Print(err)
         // TODO: error handling
-    }
+   }
 
 
-    host, _ := config.GetString("host", "n/a")
-    port, _ := config.GetString("port", "n/a")
-    token, _ := config.GetString("token", "n/a")
+   host, _ := config.GetString("host", "n/a")
+   port, _ := config.GetString("port", "n/a")
+   token, _ := config.GetString("token", "n/a")
 
-    fmt.Printf("cfg: \n")
-    fmt.Printf("host =>" +host+"<\n")
-    fmt.Printf("port =>" +port+"<\n")
-    fmt.Printf("token =>" +token+"<\n")
-    fmt.Printf("\n")
+   l3.Info("cfg: \n")
+   l3.Info("host =>" +host+"<\n")
+   l3.Info("port =>" +port+"<\n")
+   l3.Info("token =>" +token+"<\n")
+   l3.Info("\n")
 
-
-    fmt.Printf("hello, world\n")
-
-    ticker := time.NewTicker(2 * time.Minute)
-    quit := make(chan struct{})
-    go func() {
-        for {
-           select {
-           case <- ticker.C:
+   ticker := time.NewTicker(2 * time.Minute)
+   quit := make(chan struct{})
+   go func() {
+    for {
+     select {
+     case <- ticker.C:
                 // do stuff
-	
-    data := getData()
-log.Print(data)
-	url := "http://"+host+":"+port+"/api/v1/"+token+"/telemetry"
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(data)
-	log.Print("url: "+url)	
+
+        data := getData()
+        
+        l3.Print("data: "+string(data)
+
+        url := "http://"+host+":"+port+"/api/v1/"+token+"/telemetry"
+        b := new(bytes.Buffer)
+        json.NewEncoder(b).Encode(data)
+        l3.Info("url: "+url)	
 	//log.Print("data: "+string(data))	
 	//log.Print("data2:"+json.Marshal(data).value)	
-	
-	jd,err := json.Marshal(data)
-	log.Print(jd)
 
-	res, err := http.Post(url, "application/json; charset=utf-8", b)
-	
-    if err != nil {
-	log.Print(err)
-    }
-	log.Print("Request sent...")
-	log.Print(res)
-	io.Copy(os.Stdout, res.Body)
+        jd,err := json.Marshal(data)
+        l3.Info("JSON: "string(jd))
+
+        res, err := http.Post(url, "application/json; charset=utf-8", b)
+
+        if err != nil {
+           log.Print(err)
+       }
+       l3.Info("Request sent...")
+       l3.Info(res)
+       //io.Copy(os.Stdout, res.Body)
 
 
-           case <- quit:
-           ticker.Stop()
-           return
-        }
-    }
- }()
+   case <- quit:
+     ticker.Stop()
+     return
+ }
+}
+}()
 
 select {}
 
