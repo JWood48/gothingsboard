@@ -19,17 +19,12 @@ import (
 //    "github.com/d2r2/go-i2c"
 )
 
-type Configuration struct {
-    host string
-    port string
-    token string
-}
 
 type Message struct {
-    temperature float64
-    humidity float64
-    preassure float64
-    active bool
+    Temperature float64 `json:"temperature"`
+    Humidity float64 `json:"humidity"`
+    Pressure float64 `json:"pressure"`
+    Active bool `json:"active"`
 }
 
 
@@ -67,10 +62,6 @@ func main() {
     fmt.Printf("hello, world\n")
 	
     data := getData()
-
-
-
-
 
 	url := "http://"+host+":"+port+"/api/v1/"+token+"/telemetry"
 	b := new(bytes.Buffer)
