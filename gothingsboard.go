@@ -7,7 +7,7 @@ import (
 "time"
 "log"
 "log/syslog"
-"io"
+//"io"
 "bytes"
 "encoding/json"
 "net/http"
@@ -16,8 +16,15 @@ import (
     //"golang.org/x/exp/io/i2c"
     //"github.com/biturbo/bme280"
 
-"github.com/davecheney/i2c"
-"github.com/quinte17/bme280"
+	"golang.org/x/exp/io/i2c"
+
+	"github.com/quhar/bme280"
+
+
+//"github.com/davecheney/i2c"
+//"github.com/quinte17/bme280"
+
+
 //    "github.com/d2r2/go-i2c"
 )
 
@@ -60,14 +67,24 @@ func main() {
    host, _ := config.GetString("host", "n/a")
    port, _ := config.GetString("port", "n/a")
    token, _ := config.GetString("token", "n/a")
+   i2cdev, _ := config.GetString("i2c", "n/a")
+   interval, _ := config.GetInt("interval", 120)
 
    l3.Info("cfg: \n")
    l3.Info("host =>" +host+"<\n")
    l3.Info("port =>" +port+"<\n")
    l3.Info("token =>" +token+"<\n")
+   l3.Info("i2c_dev =>" +i2cdev+"<\n")
+   l3.Info(""+fmt.Sprintf("interval =>%v<\n",interval))
    l3.Info("\n")
 
-   ticker := time.NewTicker(2 * time.Minute)
+   tickerInterval := time.Duration(interval) * time.Second
+
+   l3.Info("tickerInterval: "+fmt.Sprintf("%v", tickerInterval)+"\n")
+   fmt.Printf("tickerInterval: %v", tickerInterval)
+
+
+   ticker := time.NewTicker(tickerInterval)
    quit := make(chan struct{})
    go func() {
     for {
@@ -75,9 +92,10 @@ func main() {
      case <- ticker.C:
                 // do stuff
 
-        data := getData()
+        data := getData(i2cdev)
+        //data := getData2()
         
-        l3.Print("data: "+string(data)
+        l3.Info("data: "+fmt.Sprintf("%v", data))
 
         url := "http://"+host+":"+port+"/api/v1/"+token+"/telemetry"
         b := new(bytes.Buffer)
@@ -86,8 +104,8 @@ func main() {
 	//log.Print("data: "+string(data))	
 	//log.Print("data2:"+json.Marshal(data).value)	
 
-        jd,err := json.Marshal(data)
-        l3.Info("JSON: "string(jd))
+        //jd,err := json.Marshal(data)
+        //l3.Info("JSON: "+fmt.Sprintf("%v", jd))
 
         res, err := http.Post(url, "application/json; charset=utf-8", b)
 
@@ -95,7 +113,7 @@ func main() {
            log.Print(err)
        }
        l3.Info("Request sent...")
-       l3.Info(res)
+       l3.Info(fmt.Sprintf("Response: %v", res))
        //io.Copy(os.Stdout, res.Body)
 
 
@@ -110,31 +128,35 @@ select {}
 
 }
 
-func getData() Message {
 
-	dev, err := i2c.New(0x76, 1)
+func getData(i2cdev string) Message {
+
+	//d, err := i2c.Open(&i2c.Devfs{Dev: i2cdev}, bme280.I2CAddr)
+	d, err := i2c.Open(&i2c.Devfs{Dev: i2cdev}, 0x76)
 	if err != nil {
-		log.Print(err)
+		fmt.Printf("Could not open device "+i2cdev)
+		panic(err)
 	}
-	bme, err := bme280.NewI2CDriver(dev)
+
+	b := bme280.New(d)
+	err = b.Init()
+
 	if err != nil {
-		log.Print(err)
+		fmt.Printf("Could not init bme280 from "+i2cdev)
+		panic(err)
 	}
 	
-	readData, err := bme.Readenv()
+	t, p, h, err := b.EnvData()
+
 	if err != nil {
-		log.Print(err)
+		fmt.Printf("Could not read bme280 data from "+i2cdev)
+		panic(err)
 	}
-	
 
-	log.Print("DATA READ1: ")
-	log.Print(readData)
+	fmt.Printf("Temp: %fC, Press: %fhPa, Hum: %f%%\n", t, p, h)
 
-	data := Message{readData.Temp, readData.Hum, readData.Press, true}
-
-	log.Print("DATA READ2: ")
-	log.Print(data)
+	data := Message{t, h, p, true}
 
 	return data
-
 }
+
